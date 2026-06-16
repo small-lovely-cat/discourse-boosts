@@ -12,7 +12,11 @@ module DiscourseBoosts
       attribute :direction, :string
 
       validates :username, presence: true
-      validates :direction, presence: true, inclusion: { in: %w[given received] }
+      validates :direction,
+                presence: true,
+                inclusion: {
+                  in: %w[given received]
+                }
     end
 
     model :target_user
@@ -59,19 +63,24 @@ module DiscourseBoosts
           .merge(Topic.listable_topics.visible.secured(guardian))
           .includes(:user, post: %i[topic user])
 
+      boosts = guardian.filter_hidden_posts(boosts)
+
       if guardian.user
         ignored_user_ids = guardian.user.ignored_user_ids
         if ignored_user_ids.present?
           boosts =
             boosts.where(
               "discourse_boosts.user_id NOT IN (?) OR EXISTS (SELECT 1 FROM users WHERE users.id = discourse_boosts.user_id AND (users.admin OR users.moderator))",
-              ignored_user_ids,
+              ignored_user_ids
             )
         end
       end
 
       boosts =
-        boosts.where("discourse_boosts.id < ?", params.before_boost_id) if params.before_boost_id
+        boosts.where(
+          "discourse_boosts.id < ?",
+          params.before_boost_id
+        ) if params.before_boost_id
 
       boosts.order(id: :desc).limit(PAGE_SIZE)
     end

@@ -422,6 +422,53 @@ RSpec.describe DiscourseBoosts::BoostsController do
         end
       end
     end
+
+    context "when a boosted post is hidden" do
+      fab!(:hidden_post) do
+        Fabricate(
+          :post,
+          topic: topic,
+          user: post_author,
+          raw: "secret hidden boost post body",
+          hidden: true
+        )
+      end
+      fab!(:hidden_boost) do
+        Fabricate(:boost, post: hidden_post, user: current_user)
+      end
+      fab!(:viewer, :user)
+      fab!(:admin, :admin)
+
+      it "hides the hidden post excerpt from anonymous and regular viewers" do
+        get "/discourse-boosts/users/#{current_user.username}/boosts-given.json"
+
+        expect(response.status).to eq(200)
+        expect(
+          response.parsed_body["boosts"].map { |b| b["id"] }
+        ).to contain_exactly(boost.id)
+        expect(response.body).not_to include(hidden_post.raw)
+
+        sign_in(viewer)
+        get "/discourse-boosts/users/#{current_user.username}/boosts-given.json"
+
+        expect(response.status).to eq(200)
+        expect(
+          response.parsed_body["boosts"].map { |b| b["id"] }
+        ).to contain_exactly(boost.id)
+        expect(response.body).not_to include(hidden_post.raw)
+      end
+
+      it "shows the hidden post excerpt to staff" do
+        sign_in(admin)
+        get "/discourse-boosts/users/#{current_user.username}/boosts-given.json"
+
+        expect(response.status).to eq(200)
+        expect(
+          response.parsed_body["boosts"].map { |b| b["id"] }
+        ).to contain_exactly(boost.id, hidden_boost.id)
+        expect(response.body).to include(hidden_post.raw)
+      end
+    end
   end
 
   describe "#boosts_received" do

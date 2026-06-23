@@ -82,6 +82,7 @@ export default class BoostEditor extends Component {
 
   #editor = null;
   #previousHTML = "";
+  #isComposing = false;
 
   @action
   setup(element) {
@@ -90,7 +91,11 @@ export default class BoostEditor extends Component {
   }
 
   @action
-  handleInput() {
+  handleInput(event) {
+    if (event?.isComposing || this.#isComposing) {
+      return;
+    }
+
     this.#processEmojiShortcodes();
 
     const stats = getStats(this.#editor);
@@ -104,6 +109,17 @@ export default class BoostEditor extends Component {
     const value = serialize(this.#editor);
     this.#updateCanAddEmoji(stats);
     this.args.onChange?.(value);
+  }
+
+  @action
+  handleCompositionStart() {
+    this.#isComposing = true;
+  }
+
+  @action
+  handleCompositionEnd() {
+    this.#isComposing = false;
+    this.handleInput();
   }
 
   @action
@@ -213,6 +229,8 @@ export default class BoostEditor extends Component {
       data-placeholder={{@placeholder}}
       {{didInsert this.setup}}
       {{on "input" this.handleInput}}
+      {{on "compositionstart" this.handleCompositionStart}}
+      {{on "compositionend" this.handleCompositionEnd}}
       {{on "keydown" this.handleKeyDown}}
       {{on "paste" this.handlePaste}}
     ></div>
